@@ -22,6 +22,12 @@
 
 ;; The desktop window state manager
 
+;; from eyebrowse
+;; Notes
+;; The window-state-put and window-state-get functions do not save all window parameters. If you use features like side windows that store the window parameters window-side and window-slot, you will need to customize window-persistent-parameters for them to be saved as well:
+;; (add-to-list 'window-persistent-parameters '(window-side . writable))
+;; (add-to-list 'window-persistent-parameters '(window-slot . writable))
+
 ;;; Code:
 
 (with-eval-after-load "window"
@@ -38,10 +44,12 @@
   (defvar my:window-state-pool nil)
   (defvar my:window-state-index 0)
 
+  (defun my:window-state-info ()
+    (format "[%d/%d]" (1+ my:window-state-index) (length my:window-state-pool)))
+
   (defun my:window-state-save ()
     (interactive)
-    (setcar (nthcdr my:window-state-index my:window-state-pool) (window-state-get nil t))
-    (set-frame-name (format "[%d/%d]" (1+ my:window-state-index) (length my:window-state-pool))))
+    (setcar (nthcdr my:window-state-index my:window-state-pool) (window-state-get nil t)))
 
   (defun my:window-state-create ()
     (interactive)
@@ -71,9 +79,19 @@
   (defun my:window-state-prev ()
     (interactive)
     (my:window-state-save)
+    (my:window-state-goto (1- my:window-state-index)))
+
+  (defun my:window-state-prev-cyclic ()
+    (interactive)
+    (my:window-state-save)
     (my:window-state-goto (1- my:window-state-index) t))
 
   (defun my:window-state-next ()
+    (interactive)
+    (my:window-state-save)
+    (my:window-state-goto (1+ my:window-state-index)))
+
+  (defun my:window-state-next-cyclic ()
     (interactive)
     (my:window-state-save)
     (my:window-state-goto (1+ my:window-state-index) t))
