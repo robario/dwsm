@@ -33,7 +33,7 @@
 (with-eval-after-load "window"
   ;; window-state-put cannot resume splitting window when a buffer has gone away
   (defun advice:after-until/get-buffer (&rest args)
-    (or (get-buffer "*scratch*") (other-buffer)))
+    (other-buffer))
 
   (defun advice:around/window--state-put-2 (orig-func &rest args)
     (advice-add 'get-buffer :after-until #'advice:after-until/get-buffer)
@@ -49,7 +49,8 @@
 
   (defun my:window-state-save ()
     (interactive)
-    (setcar (nthcdr my:window-state-index my:window-state-pool) (window-state-get nil t)))
+    (when (nthcdr my:window-state-index my:window-state-pool)
+      (setcar (nthcdr my:window-state-index my:window-state-pool) (window-state-get nil t))))
 
   (defun my:window-state-create ()
     (interactive)
@@ -67,10 +68,14 @@
     (my:window-state-goto my:window-state-index))
 
   (defun my:window-state-goto (index &optional cyclic)
+    (interactive "nIndex")
     (when (null my:window-state-pool)
       (my:window-state-create))
     (let ((last-index (1- (length my:window-state-pool))))
       (interactive (number-sequence 0 last-index))
+
+      (when (/= index my:window-state-index)
+        (my:window-state-save))
       (setq my:window-state-index (cond ((< index 0) (if cyclic last-index 0))
                                         ((< last-index index) (if cyclic 0 last-index))
                                         (t index)))
@@ -100,22 +105,18 @@
 
   (defun my:window-state-prev ()
     (interactive)
-    (my:window-state-save)
     (my:window-state-goto (1- my:window-state-index)))
 
   (defun my:window-state-prev-cyclic ()
     (interactive)
-    (my:window-state-save)
     (my:window-state-goto (1- my:window-state-index) t))
 
   (defun my:window-state-next ()
     (interactive)
-    (my:window-state-save)
     (my:window-state-goto (1+ my:window-state-index)))
 
   (defun my:window-state-next-cyclic ()
     (interactive)
-    (my:window-state-save)
     (my:window-state-goto (1+ my:window-state-index) t))
 
   (defun my:window-state-init ()
@@ -127,6 +128,23 @@
   (add-hook 'desktop-no-desktop-file-hook #'my:window-state-init)
   (add-hook 'desktop-not-loaded-hook #'my:window-state-init)
   (add-hook 'desktop-after-read-hook #'my:window-state-init)
+
+  ;; TODO: put zoom information into my:window-state-pool
+  (defvar my:window-state-zoom nil)
+  (defvar my:window-state-zoom-original nil)
+  (defun my:window-state-zoom ()
+    (interactive)
+    (if my:window-state-zoom
+        (progn
+          (set-face-background 'mode-line my:window-state-zoom-original)
+          (setq my:window-state-zoom-original nil)
+          (window-state-put my:window-state-zoom (frame-root-window))
+          (setq my:window-state-zoom nil)
+          )
+      (setq my:window-state-zoom (window-state-get nil t))
+      (delete-other-windows)
+      (setq my:window-state-zoom-original (face-background 'mode-line))
+      (set-face-background 'mode-line "green")))
 )
 
 (provide 'dwsm)
